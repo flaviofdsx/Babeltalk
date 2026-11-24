@@ -1,3 +1,4 @@
+import { Briefcase, HandMetal, MessageCircle } from "lucide-react";
 import type { Suggestion } from "../types";
 
 interface SuggestionPickerProps {
@@ -8,27 +9,45 @@ interface SuggestionPickerProps {
 }
 
 const toneInfo = {
-  formal: { label: "Formal", hint: "Profissional", icon: "✧" },
-  coloquial: { label: "Coloquial", hint: "Do dia a dia", icon: "☻" },
-  tosco: { label: "Tosco", hint: "Bem informal", icon: "⚡" }
+  formal: { label: "Formal", hint: "Profissional", Icon: Briefcase },
+  coloquial: { label: "Coloquial", hint: "Do dia a dia", Icon: MessageCircle },
+  descontraido: {
+    label: "Descontraído",
+    hint: "Bem informal, com gírias",
+    Icon: HandMetal
+  }
 } as const;
 
-export function SuggestionPicker({ suggestions, onChoose, onDismiss, sending }: SuggestionPickerProps) {
+export function SuggestionPicker({
+  suggestions,
+  onChoose,
+  onDismiss,
+  sending
+}: SuggestionPickerProps) {
   return (
     <div className="mb-3 overflow-hidden rounded-2xl border border-[#dcebe6] bg-white shadow-panel">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#edf7f4] text-sm text-brand">✦</span>
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#edf7f4] text-sm text-brand">
+            ✦
+          </span>
           <div>
             <p className="text-sm font-semibold text-ink">Escolha como quer dizer</p>
             <p className="text-[11px] text-muted">Toque em uma opção para enviar</p>
           </div>
         </div>
-        <button onClick={onDismiss} className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-canvas" aria-label="Fechar sugestões">×</button>
+        <button
+          onClick={onDismiss}
+          className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-canvas"
+          aria-label="Fechar sugestões"
+        >
+          ×
+        </button>
       </div>
       <div className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {suggestions.map((suggestion) => {
           const info = toneInfo[suggestion.tone];
+          const Icon = info.Icon;
           return (
             <button
               key={suggestion.tone}
@@ -38,7 +57,12 @@ export function SuggestionPicker({ suggestions, onChoose, onDismiss, sending }: 
             >
               <span className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <span className="text-brand">{info.icon}</span>
+                  <Icon
+                    aria-hidden="true"
+                    className="shrink-0 text-brand"
+                    size={16}
+                    strokeWidth={2}
+                  />
                   <span className="text-sm font-semibold text-ink">{info.label}</span>
                 </span>
                 <span className="text-[10px] text-muted">{info.hint}</span>

@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { createMessage, listMessages, type Message, type Tone } from "../db";
 
-const tones: Tone[] = ["formal", "coloquial", "tosco", "original"];
+const tones: Tone[] = ["formal", "coloquial", "descontraido", "tosco", "original"];
 
 export function registerMessageHandlers(): void {
   ipcMain.handle("messages:list", (_event, contactId: unknown) => {

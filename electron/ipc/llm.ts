@@ -21,7 +21,7 @@ export interface SuggestionsInput {
 export interface Suggestions {
   formal: string;
   coloquial: string;
-  tosco: string;
+  descontraido: string;
 }
 
 function parseSuggestions(value: string): Suggestions {
@@ -35,11 +35,14 @@ function parseSuggestions(value: string): Suggestions {
     throw new Error("O modelo não retornou um objeto de sugestões válido.");
   }
   const keys = Object.keys(parsed);
-  if (keys.length !== 3 || !["formal", "coloquial", "tosco"].every((key) => keys.includes(key))) {
+  if (
+    keys.length !== 3 ||
+    !["formal", "coloquial", "descontraido"].every((key) => keys.includes(key))
+  ) {
     throw new Error("O modelo não retornou exatamente as três sugestões esperadas.");
   }
   const result = parsed as Record<string, unknown>;
-  for (const tone of ["formal", "coloquial", "tosco"] as const) {
+  for (const tone of ["formal", "coloquial", "descontraido"] as const) {
     if (typeof result[tone] !== "string" || !result[tone].trim()) {
       throw new Error("O modelo retornou uma sugestão vazia ou inválida.");
     }
@@ -47,7 +50,7 @@ function parseSuggestions(value: string): Suggestions {
   return {
     formal: (result.formal as string).trim(),
     coloquial: (result.coloquial as string).trim(),
-    tosco: (result.tosco as string).trim()
+    descontraido: (result.descontraido as string).trim()
   };
 }
 
@@ -128,9 +131,9 @@ export function registerLlmHandlers(): void {
                   properties: {
                     formal: { type: "string" },
                     coloquial: { type: "string" },
-                    tosco: { type: "string" }
+                    descontraido: { type: "string" }
                   },
-                  required: ["formal", "coloquial", "tosco"],
+                  required: ["formal", "coloquial", "descontraido"],
                   additionalProperties: false
                 }
               }
@@ -138,7 +141,7 @@ export function registerLlmHandlers(): void {
       messages: [
         {
           role: "system",
-          content: `Você é um assistente de escrita e tradução. Gere exatamente três versões da mensagem: formal (profissional), coloquial (natural) e tosco (bem informal, com gírias apropriadas, sem insultos). Preserve a intenção e os fatos; não invente detalhes. O idioma de destino é o idioma principal do destinatário. Se for diferente do idioma da mensagem, traduza cada versão mantendo seu tom. Gere JSON válido sem Markdown, comentários ou texto antes/depois, contendo exatamente as chaves "formal", "coloquial" e "tosco", cada uma associada a uma string não vazia. ${
+          content: `Você é um assistente de escrita e tradução. Gere exatamente três versões da mensagem: formal (profissional), coloquial (natural) e descontraido (linguagem informal do dia a dia, rica em gírias, expressões regionais e sotaque local). Preserve a intenção e os fatos; não invente detalhes. O idioma de destino é o idioma principal do destinatário. Se for diferente do idioma da mensagem, traduza cada versão mantendo seu tom. Gere JSON válido sem Markdown, comentários ou texto antes/depois, contendo exatamente as chaves "formal", "coloquial" e "descontraido", cada uma associada a uma string não vazia. ${
             sender.applyRegionalisms
               ? "Aplique regionalismos com moderação e naturalidade, priorizando a região do destinatário e usando a origem do remetente apenas como contexto."
               : "Não acrescente gírias nem expressões regionais; use a variante neutra do idioma de destino."

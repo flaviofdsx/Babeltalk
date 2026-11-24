@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { defaultModels, runMigrations, type LlmProvider } from "./migrations";
 export type { LlmProvider } from "./migrations";
 
-export type Tone = "formal" | "coloquial" | "tosco" | "original";
+export type Tone = "formal" | "coloquial" | "descontraido" | "tosco" | "original";
 export type Direction = "outgoing" | "incoming";
 
 export interface Contact {
@@ -189,12 +189,16 @@ export function listMessages(contactId: string): Message[] {
 
 export function createMessage(input: Omit<Message, "id" | "createdAt">): Message {
   const message: Message = { ...input, id: randomUUID(), createdAt: new Date().toISOString() };
+  const storedMessage = {
+    ...message,
+    tone: message.tone === "descontraido" ? "tosco" : message.tone
+  };
   db()
     .prepare(
       `INSERT INTO messages (id, contact_id, text, tone, direction, created_at)
        VALUES (@id, @contactId, @text, @tone, @direction, @createdAt)`
     )
-    .run(message);
+    .run(storedMessage);
   return message;
 }
 

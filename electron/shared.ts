@@ -18,7 +18,7 @@ export interface ContactInput {
 }
 
 export interface Suggestion {
-  tone: Exclude<Tone, "original">;
+  tone: Exclude<Tone, "original" | "tosco">;
   text: string;
 }
 
@@ -47,7 +47,7 @@ export interface BabelTalkApi {
     suggest: (input: { text: string; contactId: string }) => Promise<{
       formal: string;
       coloquial: string;
-      tosco: string;
+      descontraido: string;
     }>;
   };
 }

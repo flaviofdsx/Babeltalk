@@ -1,4 +1,5 @@
-export type Tone = "formal" | "coloquial" | "tosco" | "original";
+export type Tone = "formal" | "coloquial" | "descontraido" | "tosco" | "original";
+export type SuggestionTone = Exclude<Tone, "original" | "tosco">;
 export type Direction = "outgoing" | "incoming";
 export type LlmProvider = "openai" | "openrouter";
 
@@ -51,7 +52,7 @@ export interface Profile {
 }
 
 export interface Suggestion {
-  tone: Exclude<Tone, "original">;
+  tone: SuggestionTone;
   text: string;
 }
 
@@ -80,7 +81,7 @@ export interface BabelTalkApi {
     suggest: (input: {
       text: string;
       contactId: string;
-    }) => Promise<Record<Exclude<Tone, "original">, string>>;
+    }) => Promise<Record<SuggestionTone, string>>;
   };
 }
 

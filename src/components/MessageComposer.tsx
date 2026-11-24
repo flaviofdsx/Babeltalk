@@ -28,11 +28,14 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
     setError("");
     setSuggestions(null);
     try {
-      const result = await window.babelTalk.llm.suggest({ text: text.trim(), contactId: contact.id });
+      const result = await window.babelTalk.llm.suggest({
+        text: text.trim(),
+        contactId: contact.id
+      });
       setSuggestions([
         { tone: "formal", text: result.formal },
         { tone: "coloquial", text: result.coloquial },
-        { tone: "tosco", text: result.tosco }
+        { tone: "descontraido", text: result.descontraido }
       ]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Não foi possível gerar sugestões.");
@@ -78,13 +81,30 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
         />
       )}
       {error && (
-        <div role="alert" className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div
+          role="alert"
+          className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
           <span>{error}</span>
-          <button onClick={() => setError("")} className="ml-3 font-semibold" aria-label="Dispensar aviso">×</button>
+          <button
+            onClick={() => setError("")}
+            className="ml-3 font-semibold"
+            aria-label="Dispensar aviso"
+          >
+            ×
+          </button>
         </div>
       )}
-      <form onSubmit={submit} className="flex items-end gap-2 rounded-2xl border border-line bg-[#fbfcfc] p-2 transition focus-within:border-[#a8d1c5] focus-within:ring-2 focus-within:ring-brand/10">
-        <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg text-muted hover:bg-canvas" title="Em breve: anexar arquivo" aria-label="Anexar arquivo">
+      <form
+        onSubmit={submit}
+        className="flex items-end gap-2 rounded-2xl border border-line bg-[#fbfcfc] p-2 transition focus-within:border-[#a8d1c5] focus-within:ring-2 focus-within:ring-brand/10"
+      >
+        <button
+          type="button"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg text-muted hover:bg-canvas"
+          title="Em breve: anexar arquivo"
+          aria-label="Anexar arquivo"
+        >
           +
         </button>
         <textarea
@@ -111,7 +131,8 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
         </button>
       </form>
       <p className="mt-2 text-center text-[10px] text-muted">
-        Enviar mostra três sugestões. Escolha uma para enviar. <span className="hidden sm:inline">Enter envia · Shift + Enter para nova linha</span>
+        Enviar mostra três sugestões. Escolha uma para enviar.{" "}
+        <span className="hidden sm:inline">Enter envia · Shift + Enter para nova linha</span>
       </p>
     </div>
   );

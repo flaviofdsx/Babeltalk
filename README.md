@@ -7,13 +7,27 @@ Aplicativo desktop de mensagens que ajuda você a escolher o tom certo e convers
 
 ## Funcionalidades
 
-- Gere três versões da mensagem antes de enviar: **Formal**, **Coloquial** e **Tosco**.
-- Use OpenRouter com DeepSeek V4 Flash Free por padrão ou selecione OpenAI nas configurações.
+- Gere três versões da mensagem antes de enviar: **Formal**, **Coloquial** e **Descontraído**.
+- Use OpenRouter com DeepSeek V4 Flash por padrão ou selecione OpenAI nas configurações.
 - Adapte expressões regionais considerando o perfil de quem envia e de quem recebe.
 - Cadastre contatos com país, estado ou província, cidade, idioma e observações.
 - Traduza sugestões para o idioma principal do destinatário.
 - Mantenha contatos, perfil e histórico de mensagens localmente no dispositivo.
 - Edite e remova contatos e configure o modelo de IA usado pelo app.
+
+## Capturas de tela
+
+### Sugestões com regionalismos
+
+![Conversa com sugestões formal, coloquial e informal adaptadas à região do contato](docs/images/chat-regional-suggestions.png)
+
+### Escolha do tom antes de enviar
+
+![Campo de mensagem com as três sugestões disponíveis para seleção](docs/images/chat-suggestions.png)
+
+### Tela inicial
+
+![Tela inicial do BabelTalk antes de adicionar contatos](docs/images/empty-state.png)
 
 ## Stack
 
