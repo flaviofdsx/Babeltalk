@@ -1,5 +1,14 @@
 export type Tone = "formal" | "coloquial" | "tosco" | "original";
 export type Direction = "outgoing" | "incoming";
+export type LlmProvider = "openai" | "openrouter";
+
+export interface LlmSettingsSnapshot {
+  provider: LlmProvider;
+  model: string;
+  configured: boolean;
+  models: Record<LlmProvider, string>;
+  configuredByProvider: Record<LlmProvider, boolean>;
+}
 
 export interface Contact {
   id: string;
@@ -62,12 +71,16 @@ export interface BabelTalkApi {
     save: (profile: Profile) => Promise<Profile>;
   };
   llm: {
-    settings: () => Promise<{ model: string; configured: boolean }>;
-    saveSettings: (settings: { apiKey?: string; model: string }) => Promise<{
+    settings: () => Promise<LlmSettingsSnapshot>;
+    saveSettings: (settings: {
+      provider: LlmProvider;
+      apiKey?: string;
       model: string;
-      configured: boolean;
-    }>;
-    suggest: (input: { text: string; contactId: string }) => Promise<Record<Exclude<Tone, "original">, string>>;
+    }) => Promise<LlmSettingsSnapshot>;
+    suggest: (input: {
+      text: string;
+      contactId: string;
+    }) => Promise<Record<Exclude<Tone, "original">, string>>;
   };
 }
 

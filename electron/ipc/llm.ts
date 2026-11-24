@@ -2,12 +2,16 @@ import OpenAI from "openai";
 import { ipcMain } from "electron";
 import {
   getLlmSettings,
+  getLlmSettingsSnapshot,
   getContact,
   getProfile,
   saveLlmSettings,
   type Contact,
+  type LlmProvider,
   type Profile
 } from "../db";
+
+const DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash:free";
 
 export interface SuggestionsInput {
   text: string;
@@ -51,14 +55,18 @@ function location(profile: Pick<Profile, "city" | "state" | "country">): string 
   return [profile.city, profile.state, profile.country].filter(Boolean).join(", ");
 }
 
+function isLlmProvider(value: unknown): value is LlmProvider {
+  return value === "openai" || value === "openrouter";
+}
+
 export function registerLlmHandlers(): void {
-  ipcMain.handle("llm:settings:get", () => {
-    const settings = getLlmSettings();
-    return { model: settings.model, configured: Boolean(settings.apiKey) };
-  });
+  ipcMain.handle("llm:settings:get", () => getLlmSettingsSnapshot());
   ipcMain.handle(
     "llm:settings:save",
-    (_event, input: { apiKey?: unknown; model?: unknown }) => {
+    (_event, input: { provider?: unknown; apiKey?: unknown; model?: unknown } | null) => {
+      if (!input || typeof input !== "object" || !isLlmProvider(input.provider)) {
+        throw new Error("Selecione um provedor de IA válido.");
+      }
       if (typeof input.model !== "string" || !input.model.trim() || input.model.length > 100) {
         throw new Error("Informe um identificador de modelo válido.");
       }
@@ -67,7 +75,7 @@ export function registerLlmHandlers(): void {
       }
       const model = input.model.trim();
       const apiKey = typeof input.apiKey === "string" ? input.apiKey : "";
-      return saveLlmSettings({ apiKey, model });
+      return saveLlmSettings({ provider: input.provider, apiKey, model });
     }
   );
   ipcMain.handle("llm:suggest", async (_event, input: SuggestionsInput) => {
@@ -80,41 +88,61 @@ export function registerLlmHandlers(): void {
     ) {
       throw new Error("Escreva uma mensagem de até 5.000 caracteres e selecione um contato.");
     }
-    const { apiKey, model } = getLlmSettings();
-    if (!apiKey) throw new Error("Configure sua chave da OpenAI em Configurações para gerar sugestões.");
+    const settings = getLlmSettings();
+    const { apiKey, provider } = settings;
+    const model = settings.model.trim() || DEFAULT_LLM_MODEL;
+    if (!apiKey) {
+      const providerName = provider === "openrouter" ? "OpenRouter" : "OpenAI";
+      throw new Error(
+        `Configure sua chave da ${providerName} em Configurações para gerar sugestões.`
+      );
+    }
 
     const sender = getProfile();
     const recipient: Contact = getContact(input.contactId);
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({
+      apiKey,
+      ...(provider === "openrouter"
+        ? {
+            baseURL: "https://openrouter.ai/api/v1",
+            defaultHeaders: {
+              "HTTP-Referer": "https://github.com/flaviofdsx/Babeltalk",
+              "X-Title": "BabelTalk"
+            }
+          }
+        : {})
+    });
     const response = await openai.chat.completions.create({
       model,
       temperature: 0.8,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "babeltalk_suggestions",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              formal: { type: "string" },
-              coloquial: { type: "string" },
-              tosco: { type: "string" }
+      response_format:
+        provider === "openrouter"
+          ? { type: "json_object" }
+          : {
+              type: "json_schema",
+              json_schema: {
+                name: "babeltalk_suggestions",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    formal: { type: "string" },
+                    coloquial: { type: "string" },
+                    tosco: { type: "string" }
+                  },
+                  required: ["formal", "coloquial", "tosco"],
+                  additionalProperties: false
+                }
+              }
             },
-            required: ["formal", "coloquial", "tosco"],
-            additionalProperties: false
-          }
-        }
-      },
       messages: [
         {
           role: "system",
-          content:
-            `Você é um assistente de escrita e tradução. Gere exatamente três versões da mensagem: formal (profissional), coloquial (natural) e tosco (bem informal, com gírias apropriadas, sem insultos). Preserve a intenção e os fatos; não invente detalhes. O idioma de destino é o idioma principal do destinatário. Se for diferente do idioma da mensagem, traduza cada versão mantendo seu tom. ${
-              sender.applyRegionalisms
-                ? "Aplique regionalismos com moderação e naturalidade, priorizando a região do destinatário e usando a origem do remetente apenas como contexto."
-                : "Não acrescente gírias nem expressões regionais; use a variante neutra do idioma de destino."
-            } Use observações dos perfis somente como contexto relevante, sem repeti-las na resposta. Responda exclusivamente com um objeto JSON contendo exatamente as chaves "formal", "coloquial" e "tosco", cada uma com o texto da respectiva sugestão.`
+          content: `Você é um assistente de escrita e tradução. Gere exatamente três versões da mensagem: formal (profissional), coloquial (natural) e tosco (bem informal, com gírias apropriadas, sem insultos). Preserve a intenção e os fatos; não invente detalhes. O idioma de destino é o idioma principal do destinatário. Se for diferente do idioma da mensagem, traduza cada versão mantendo seu tom. Gere JSON válido sem Markdown, comentários ou texto antes/depois, contendo exatamente as chaves "formal", "coloquial" e "tosco", cada uma associada a uma string não vazia. ${
+            sender.applyRegionalisms
+              ? "Aplique regionalismos com moderação e naturalidade, priorizando a região do destinatário e usando a origem do remetente apenas como contexto."
+              : "Não acrescente gírias nem expressões regionais; use a variante neutra do idioma de destino."
+          } Use observações dos perfis somente como contexto relevante, sem repeti-las na resposta.`
         },
         {
           role: "user",

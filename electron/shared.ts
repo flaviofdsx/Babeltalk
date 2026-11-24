@@ -1,4 +1,12 @@
-import type { Contact, Direction, Message, Profile, Tone } from "./db";
+import type {
+  Contact,
+  Direction,
+  LlmProvider,
+  LlmSettingsSnapshot,
+  Message,
+  Profile,
+  Tone
+} from "./db";
 
 export interface ContactInput {
   name: string;
@@ -30,11 +38,12 @@ export interface BabelTalkApi {
     save: (profile: Profile) => Promise<Profile>;
   };
   llm: {
-    settings: () => Promise<{ model: string; configured: boolean }>;
-    saveSettings: (settings: { apiKey?: string; model: string }) => Promise<{
+    settings: () => Promise<LlmSettingsSnapshot>;
+    saveSettings: (settings: {
+      provider: LlmProvider;
+      apiKey?: string;
       model: string;
-      configured: boolean;
-    }>;
+    }) => Promise<LlmSettingsSnapshot>;
     suggest: (input: { text: string; contactId: string }) => Promise<{
       formal: string;
       coloquial: string;

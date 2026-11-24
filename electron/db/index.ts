@@ -1,8 +1,9 @@
 import { app, safeStorage } from "electron";
 import Database from "better-sqlite3";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { defaultModels, runMigrations, type LlmProvider } from "./migrations";
+export type { LlmProvider } from "./migrations";
 
 export type Tone = "formal" | "coloquial" | "tosco" | "original";
 export type Direction = "outgoing" | "incoming";
@@ -36,6 +37,20 @@ export interface Profile {
   language: string;
   observations: string;
   applyRegionalisms: boolean;
+}
+
+export interface LlmSettings {
+  provider: LlmProvider;
+  model: string;
+  apiKey: string;
+}
+
+export interface LlmSettingsSnapshot {
+  provider: LlmProvider;
+  model: string;
+  configured: boolean;
+  models: Record<LlmProvider, string>;
+  configuredByProvider: Record<LlmProvider, boolean>;
 }
 
 interface ContactRow {
@@ -107,32 +122,8 @@ export function initializeDatabase(): void {
   const file = join(app.getPath("userData"), "babeltalk.sqlite");
   database = new Database(file);
   database.pragma("journal_mode = WAL");
-  database.exec(readFileSync(join(__dirname, "schema.sql"), "utf8"));
-  migrateDatabase();
-}
-
-function migrateDatabase(): void {
-  const columns = db().pragma("table_info(contacts)") as { name: string }[];
-  if (!columns.some((column) => column.name === "observations")) {
-    db().exec("ALTER TABLE contacts ADD COLUMN observations TEXT NOT NULL DEFAULT ''");
-  }
-  const legacy = db()
-    .prepare("SELECT key, value FROM settings WHERE key LIKE 'profile.%'")
-    .all() as { key: string; value: string }[];
-  if (legacy.length) {
-    const values = Object.fromEntries(legacy.map(({ key, value }) => [key.slice("profile.".length), value]));
-    db().prepare(
-      `INSERT OR IGNORE INTO profile (id, name, country, state, city, language, observations, apply_regionalisms)
-       VALUES (1, @name, @country, @state, @city, @language, @observations, 1)`
-    ).run({
-      name: values.name ?? "Você",
-      country: values.country ?? "Brasil",
-      state: values.state ?? "",
-      city: values.city ?? "",
-      language: values.language ?? "Português",
-      observations: values.observations ?? ""
-    });
-  }
+  database.pragma("foreign_keys = ON");
+  runMigrations(database);
 }
 
 export function listContacts(): Contact[] {
@@ -189,14 +180,14 @@ export function getContact(id: string): Contact {
 }
 
 export function listMessages(contactId: string): Message[] {
-  return (db()
-    .prepare("SELECT * FROM messages WHERE contact_id = ? ORDER BY created_at ASC")
-    .all(contactId) as MessageRow[]).map(mapMessage);
+  return (
+    db()
+      .prepare("SELECT * FROM messages WHERE contact_id = ? ORDER BY created_at ASC")
+      .all(contactId) as MessageRow[]
+  ).map(mapMessage);
 }
 
-export function createMessage(
-  input: Omit<Message, "id" | "createdAt">
-): Message {
+export function createMessage(input: Omit<Message, "id" | "createdAt">): Message {
   const message: Message = { ...input, id: randomUUID(), createdAt: new Date().toISOString() };
   db()
     .prepare(
@@ -225,43 +216,100 @@ export function getProfile(): Profile {
 }
 
 export function saveProfile(profile: Profile): Profile {
-  db().prepare(
-    `INSERT INTO profile (id, name, country, state, city, language, observations, apply_regionalisms)
+  db()
+    .prepare(
+      `INSERT INTO profile (id, name, country, state, city, language, observations, apply_regionalisms)
      VALUES (1, @name, @country, @state, @city, @language, @observations, @applyRegionalisms)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, country = excluded.country,
        state = excluded.state, city = excluded.city, language = excluded.language,
        observations = excluded.observations, apply_regionalisms = excluded.apply_regionalisms`
-  ).run({ ...profile, applyRegionalisms: profile.applyRegionalisms ? 1 : 0 });
+    )
+    .run({ ...profile, applyRegionalisms: profile.applyRegionalisms ? 1 : 0 });
   return getProfile();
 }
 
-export function getLlmSettings(): { apiKey: string; model: string } {
-  const model = db().prepare("SELECT value FROM settings WHERE key = 'llm.model'").get() as
-    | { value: string }
-    | undefined;
-  const encrypted = db().prepare("SELECT value FROM settings WHERE key = 'llm.apiKey'").get() as
-    | { value: string }
-    | undefined;
-  let apiKey = process.env.OPENAI_API_KEY ?? "";
-  if (encrypted && safeStorage.isEncryptionAvailable()) {
-    apiKey = safeStorage.decryptString(Buffer.from(encrypted.value, "base64"));
-  }
-  return { apiKey, model: model?.value ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini" };
+function readSetting(key: string): string | undefined {
+  return (
+    db().prepare("SELECT value FROM settings WHERE key = ?").get(key) as
+      { value: string } | undefined
+  )?.value;
 }
 
-export function saveLlmSettings(input: { apiKey: string; model: string }): { model: string; configured: boolean } {
-  const save = db().prepare(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-  );
-  save.run("llm.model", input.model);
-  if (input.apiKey.trim()) {
+function validProvider(value: string | undefined): value is LlmProvider {
+  return value === "openai" || value === "openrouter";
+}
+
+function modelFor(provider: LlmProvider): string {
+  const environmentModel =
+    provider === "openai" ? process.env.OPENAI_MODEL : process.env.OPENROUTER_MODEL;
+  return readSetting(`llm.model.${provider}`) ?? environmentModel ?? defaultModels[provider];
+}
+
+function environmentApiKeyFor(provider: LlmProvider): string {
+  return provider === "openai"
+    ? (process.env.OPENAI_API_KEY ?? "")
+    : (process.env.OPENROUTER_API_KEY ?? "");
+}
+
+function storedApiKeyFor(provider: LlmProvider): string {
+  const encrypted = readSetting(`llm.apiKey.${provider}`);
+  if (!encrypted || !safeStorage.isEncryptionAvailable()) return "";
+  return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
+}
+
+function configuredFor(provider: LlmProvider): boolean {
+  if (environmentApiKeyFor(provider).trim()) return true;
+  return Boolean(readSetting(`llm.apiKey.${provider}`) && safeStorage.isEncryptionAvailable());
+}
+
+export function getLlmSettings(): LlmSettings {
+  const storedProvider = readSetting("llm.provider");
+  const provider = validProvider(storedProvider) ? storedProvider : "openrouter";
+  const apiKey = storedApiKeyFor(provider) || environmentApiKeyFor(provider);
+  return { provider, model: modelFor(provider), apiKey };
+}
+
+export function getLlmSettingsSnapshot(): LlmSettingsSnapshot {
+  const { provider, model, apiKey } = getLlmSettings();
+  return {
+    provider,
+    model,
+    configured: Boolean(apiKey),
+    models: {
+      openai: modelFor("openai"),
+      openrouter: modelFor("openrouter")
+    },
+    configuredByProvider: {
+      openai: configuredFor("openai"),
+      openrouter: configuredFor("openrouter")
+    }
+  };
+}
+
+export function saveLlmSettings(input: {
+  provider: LlmProvider;
+  apiKey: string;
+  model: string;
+}): LlmSettingsSnapshot {
+  const trimmedApiKey = input.apiKey.trim();
+  let encryptedKey: string | undefined;
+  if (trimmedApiKey) {
     if (!safeStorage.isEncryptionAvailable()) {
       throw new Error("A criptografia segura do sistema não está disponível para salvar a chave.");
     }
-    const encrypted = safeStorage.encryptString(input.apiKey.trim()).toString("base64");
-    save.run("llm.apiKey", encrypted);
+    encryptedKey = safeStorage.encryptString(trimmedApiKey).toString("base64");
   }
-  return { model: input.model, configured: Boolean(input.apiKey.trim() || process.env.OPENAI_API_KEY) };
+
+  const upsert = db().prepare(
+    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  );
+  const save = db().transaction(() => {
+    upsert.run("llm.provider", input.provider);
+    upsert.run(`llm.model.${input.provider}`, input.model);
+    if (encryptedKey) upsert.run(`llm.apiKey.${input.provider}`, encryptedKey);
+  });
+  save();
+  return getLlmSettingsSnapshot();
 }
 
 export function closeDatabase(): void {
