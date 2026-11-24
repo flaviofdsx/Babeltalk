@@ -11,7 +11,7 @@ import {
   type Profile
 } from "../db";
 
-const DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash:free";
+const MODEL = "deepseek/deepseek-v4-flash";
 
 export interface SuggestionsInput {
   text: string;
@@ -90,7 +90,7 @@ export function registerLlmHandlers(): void {
     }
     const settings = getLlmSettings();
     const { apiKey, provider } = settings;
-    const model = settings.model.trim() || DEFAULT_LLM_MODEL;
+    const model = settings.model.trim() || MODEL;
     if (!apiKey) {
       const providerName = provider === "openrouter" ? "OpenRouter" : "OpenAI";
       throw new Error(

@@ -28,11 +28,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     applyRegionalisms: true
   },
   provider: "openrouter",
-  model: "deepseek/deepseek-v4-flash:free",
+  model: "deepseek/deepseek-v4-flash",
   configured: false,
   models: {
     openai: "gpt-4o-mini",
-    openrouter: "deepseek/deepseek-v4-flash:free"
+    openrouter: "deepseek/deepseek-v4-flash"
   },
   configuredByProvider: { openai: false, openrouter: false },
   open: false,

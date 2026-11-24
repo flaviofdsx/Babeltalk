@@ -7,7 +7,7 @@ export type LlmProvider = "openai" | "openrouter";
 
 export const defaultModels: Record<LlmProvider, string> = {
   openai: "gpt-4o-mini",
-  openrouter: "deepseek/deepseek-v4-flash:free"
+  openrouter: "deepseek/deepseek-v4-flash"
 };
 
 interface Migration {
@@ -113,6 +113,13 @@ function migrateLlmSettings(db: Database.Database): void {
   }
 }
 
+function migrateDeepSeekModel(db: Database.Database): void {
+  db.prepare("UPDATE settings SET value = ? WHERE key = 'llm.model.openrouter' AND value = ?").run(
+    defaultModels.openrouter,
+    "deepseek/deepseek-v4-flash:free"
+  );
+}
+
 export function runMigrations(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -136,6 +143,11 @@ export function runMigrations(db: Database.Database): void {
       version: 2,
       description: "Adiciona provedores OpenAI e OpenRouter",
       up: () => migrateLlmSettings(db)
+    },
+    {
+      version: 3,
+      description: "Atualiza o modelo DeepSeek do OpenRouter",
+      up: () => migrateDeepSeekModel(db)
     }
   ];
 

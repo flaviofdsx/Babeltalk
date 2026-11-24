@@ -41,7 +41,7 @@ npm install
 
 ## Configuração
 
-Na primeira execução, abra **Configurações** no BabelTalk, selecione OpenRouter ou OpenAI e informe a chave e o modelo desse provedor. Em instalações novas, o padrão é OpenRouter com `deepseek/deepseek-v4-flash:free`; OpenAI com `gpt-4o-mini` continua disponível como alternativa. As chaves são protegidas com `safeStorage` do Electron.
+Na primeira execução, abra **Configurações** no BabelTalk, selecione OpenRouter ou OpenAI e informe a chave e o modelo desse provedor. Em instalações novas, o padrão é OpenRouter com `deepseek/deepseek-v4-flash`; OpenAI com `gpt-4o-mini` continua disponível como alternativa. As chaves são protegidas com `safeStorage` do Electron.
 
 Para desenvolvimento local, é opcional copiar `.env.example` para `.env` e preencher as variáveis. O app só carrega `.env` quando iniciado com `NODE_ENV=development`; o comando `npm run dev` configura esse modo automaticamente. Em produção, o arquivo `.env` é ignorado. Nunca adicione chaves reais ao repositório.
 
