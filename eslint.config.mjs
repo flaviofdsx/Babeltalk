@@ -26,6 +26,9 @@ export default tseslint.config(
     files: ["electron/**/*.ts"],
     languageOptions: {
       globals: globals.node
+    },
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
     }
   }
 );

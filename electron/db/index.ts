@@ -7,6 +7,7 @@ export type { LlmProvider } from "./migrations";
 
 export type Tone = "formal" | "coloquial" | "descontraido" | "tosco" | "original";
 export type Direction = "outgoing" | "incoming";
+export type MessageStatus = "queued" | "sending" | "sent" | "delivered" | "failed";
 
 export interface Contact {
   id: string;
@@ -23,9 +24,11 @@ export interface Contact {
 export interface Message {
   id: string;
   contactId: string;
+  originalText: string;
   text: string;
   tone: Tone;
   direction: Direction;
+  status: MessageStatus;
   createdAt: string;
 }
 
@@ -68,9 +71,11 @@ interface ContactRow {
 interface MessageRow {
   id: string;
   contact_id: string;
+  original_text: string;
   text: string;
   tone: Tone;
   direction: Direction;
+  status: MessageStatus;
   created_at: string;
 }
 
@@ -93,6 +98,10 @@ function db(): Database.Database {
   return database;
 }
 
+export function getDatabase(): Database.Database {
+  return db();
+}
+
 function mapContact(row: ContactRow): Contact {
   return {
     id: row.id,
@@ -111,9 +120,11 @@ function mapMessage(row: MessageRow): Message {
   return {
     id: row.id,
     contactId: row.contact_id,
+    originalText: row.original_text,
     text: row.text,
     tone: row.tone,
     direction: row.direction,
+    status: row.status ?? "sent",
     createdAt: row.created_at
   };
 }
@@ -188,18 +199,27 @@ export function listMessages(contactId: string): Message[] {
 }
 
 export function createMessage(input: Omit<Message, "id" | "createdAt">): Message {
-  const message: Message = { ...input, id: randomUUID(), createdAt: new Date().toISOString() };
+  const message: Message = {
+    ...input,
+    id: randomUUID(),
+    status: input.status ?? "sent",
+    createdAt: new Date().toISOString()
+  };
   const storedMessage = {
     ...message,
     tone: message.tone === "descontraido" ? "tosco" : message.tone
   };
   db()
     .prepare(
-      `INSERT INTO messages (id, contact_id, text, tone, direction, created_at)
-       VALUES (@id, @contactId, @text, @tone, @direction, @createdAt)`
+      `INSERT INTO messages (id, contact_id, original_text, text, tone, direction, status, created_at)
+       VALUES (@id, @contactId, @originalText, @text, @tone, @direction, @status, @createdAt)`
     )
     .run(storedMessage);
   return message;
+}
+
+export function updateMessageStatus(messageId: string, status: MessageStatus): void {
+  db().prepare("UPDATE messages SET status = ? WHERE id = ?").run(status, messageId);
 }
 
 export function getProfile(): Profile {

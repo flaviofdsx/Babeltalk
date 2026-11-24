@@ -12,6 +12,9 @@ export function registerMessageHandlers(): void {
     if (typeof input.contactId !== "string" || !input.contactId) {
       throw new Error("Contato inválido.");
     }
+    if (typeof input.originalText !== "string" || !input.originalText.trim()) {
+      throw new Error("Texto original é obrigatório.");
+    }
     if (typeof input.text !== "string" || !input.text.trim() || input.text.length > 10000) {
       throw new Error("A mensagem deve ter entre 1 e 10.000 caracteres.");
     }
@@ -21,9 +24,11 @@ export function registerMessageHandlers(): void {
     if (!input.tone || !tones.includes(input.tone)) throw new Error("Tom da mensagem inválido.");
     return createMessage({
       contactId: input.contactId,
+      originalText: input.originalText.trim(),
       text: input.text.trim(),
       tone: input.tone,
-      direction: input.direction
+      direction: input.direction,
+      status: input.status ?? "sent"
     });
   });
 }

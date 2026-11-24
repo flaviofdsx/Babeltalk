@@ -55,9 +55,17 @@ npm install
 
 ## Configuração
 
-Na primeira execução, abra **Configurações** no BabelTalk, selecione OpenRouter ou OpenAI e informe a chave e o modelo desse provedor. Em instalações novas, o padrão é OpenRouter com `deepseek/deepseek-v4-flash`; OpenAI com `gpt-4o-mini` continua disponível como alternativa. As chaves são protegidas com `safeStorage` do Electron.
+A chave da API do OpenRouter é **administrada pelo criador do BabelTalk** e nunca é solicitada ao usuário final. As requisições de IA passam por uma camada de proxy administrada com controle de orçamento, limites e cache local para evitar chamadas duplicadas.
 
-Para desenvolvimento local, é opcional copiar `.env.example` para `.env` e preencher as variáveis. O app só carrega `.env` quando iniciado com `NODE_ENV=development`; o comando `npm run dev` configura esse modo automaticamente. Em produção, o arquivo `.env` é ignorado. Nunca adicione chaves reais ao repositório.
+Em desenvolvimento, copie `.env.example` para `.env` e preencha a variável `ADMIN_OPENROUTER_API_KEY` (ou configure `ADMIN_LLM_PROXY_URL`). O app só carrega `.env` com `NODE_ENV=development`; em produção o arquivo é ignorado. Nunca adicione chaves reais ao repositório.
+
+## Transporte P2P
+
+O BabelTalk utiliza **WebRTC DataChannel** para comunicação P2P entre dispositivos, com sinalização e descoberta desacopladas. Quando o contato está offline, as mensagens são enfileiradas localmente (outbox) com backoff exponencial e entregues automaticamente quando o canal é restabelecido.
+
+## Arquitetura Multiplataforma
+
+O código de domínio, fila offline (outbox) e contratos de transporte ficam no pacote `shared/`, reutilizável tanto no **Electron** (desktop) quanto no **React Native** (mobile).
 
 ## Como rodar em desenvolvimento
 

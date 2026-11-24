@@ -120,6 +120,47 @@ function migrateDeepSeekModel(db: Database.Database): void {
   );
 }
 
+function migrateOriginalText(db: Database.Database): void {
+  const messages = tableColumns(db, "messages");
+  if (!messages.has("original_text")) {
+    db.exec("ALTER TABLE messages ADD COLUMN original_text TEXT NOT NULL DEFAULT ''");
+    db.exec("UPDATE messages SET original_text = text WHERE original_text = ''");
+  }
+}
+
+function migrateOutboxAndCache(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS message_outbox (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      contact_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','delivered','failed')),
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS outbox_status_next_retry
+      ON message_outbox(status, next_retry_at);
+
+    CREATE TABLE IF NOT EXISTS suggestion_cache (
+      cache_key TEXT PRIMARY KEY,
+      result_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      hit_count INTEGER NOT NULL DEFAULT 1
+    );
+  `);
+
+  const messages = tableColumns(db, "messages");
+  if (!messages.has("status")) {
+    db.exec(
+      "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('queued','sending','sent','delivered','failed'))"
+    );
+  }
+}
+
 export function runMigrations(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -148,6 +189,16 @@ export function runMigrations(db: Database.Database): void {
       version: 3,
       description: "Atualiza o modelo DeepSeek do OpenRouter",
       up: () => migrateDeepSeekModel(db)
+    },
+    {
+      version: 4,
+      description: "Adiciona coluna original_text na tabela messages",
+      up: () => migrateOriginalText(db)
+    },
+    {
+      version: 5,
+      description: "Adiciona outbox, cache de sugestões e status na tabela messages",
+      up: () => migrateOutboxAndCache(db)
     }
   ];
 

@@ -2,10 +2,14 @@ import { app, BrowserWindow } from "electron";
 import dotenv from "dotenv";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { closeDatabase, initializeDatabase } from "./db";
+import { closeDatabase, getDatabase, initializeDatabase } from "./db";
 import { registerIpcHandlers } from "./ipc";
+import { createTransport } from "./transport/serverless";
+import { OutboxScheduler } from "./worker/scheduler";
+import { createTray, destroyTray } from "./tray";
 
 let mainWindow: BrowserWindow | undefined;
+let outboxScheduler: OutboxScheduler | undefined;
 
 function loadDevelopmentEnv(): void {
   if (app.isPackaged || process.env.NODE_ENV !== "development") return;
@@ -50,11 +54,24 @@ function createWindow(): void {
   });
 }
 
-app.whenReady()
+app
+  .whenReady()
   .then(() => {
     initializeDatabase();
+    const db = getDatabase();
     registerIpcHandlers();
     createWindow();
+
+    const transport = createTransport();
+    outboxScheduler = new OutboxScheduler({
+      db,
+      transport,
+      onStatusChange: () => {}
+    });
+    outboxScheduler.start();
+
+    createTray(db);
+
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -65,7 +82,14 @@ app.whenReady()
   });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    destroyTray();
+    app.quit();
+  }
 });
 
-app.on("before-quit", () => closeDatabase());
+app.on("before-quit", () => {
+  outboxScheduler?.stop();
+  destroyTray();
+  closeDatabase();
+});

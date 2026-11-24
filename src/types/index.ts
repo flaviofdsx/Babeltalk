@@ -1,6 +1,7 @@
 export type Tone = "formal" | "coloquial" | "descontraido" | "tosco" | "original";
 export type SuggestionTone = Exclude<Tone, "original" | "tosco">;
 export type Direction = "outgoing" | "incoming";
+export type MessageStatus = "queued" | "sending" | "sent" | "delivered" | "failed";
 export type LlmProvider = "openai" | "openrouter";
 
 export interface LlmSettingsSnapshot {
@@ -35,9 +36,11 @@ export interface ContactInput {
 export interface Message {
   id: string;
   contactId: string;
+  originalText: string;
   text: string;
   tone: Tone;
   direction: Direction;
+  status: MessageStatus;
   createdAt: string;
 }
 
@@ -82,6 +85,17 @@ export interface BabelTalkApi {
       text: string;
       contactId: string;
     }) => Promise<Record<SuggestionTone, string>>;
+  };
+  outbox: {
+    enqueue: (input: {
+      messageId: string;
+      contactId: string;
+      originalText: string;
+      sentText: string;
+      tone: string;
+    }) => Promise<{ id: string; status: string }>;
+    status: (messageId: string) => Promise<{ status: string } | null>;
+    pendingCount: () => Promise<number>;
   };
 }
 

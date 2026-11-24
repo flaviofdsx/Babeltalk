@@ -20,6 +20,11 @@ const api: BabelTalkApi = {
     settings: () => ipcRenderer.invoke("llm:settings:get"),
     saveSettings: (settings) => ipcRenderer.invoke("llm:settings:save", settings),
     suggest: (input) => ipcRenderer.invoke("llm:suggest", input)
+  },
+  outbox: {
+    enqueue: (input) => ipcRenderer.invoke("outbox:enqueue", input),
+    status: (messageId) => ipcRenderer.invoke("outbox:status", messageId),
+    pendingCount: () => ipcRenderer.invoke("outbox:pendingCount")
   }
 };
 

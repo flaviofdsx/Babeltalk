@@ -1,15 +1,16 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSettingsStore } from "../store/useSettingsStore";
 import type { Contact, Suggestion, Tone } from "../types";
 import { SuggestionPicker } from "./SuggestionPicker";
 
 interface MessageComposerProps {
   contact: Contact;
-  onSend: (text: string, tone: Tone) => Promise<void>;
+  onSend: (originalText: string, sentText: string, tone: Tone) => Promise<void>;
 }
 
 export function MessageComposer({ contact, onSend }: MessageComposerProps) {
   const [text, setText] = useState("");
+  const originalRef = useRef("");
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
@@ -24,6 +25,7 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
       showSettings();
       return;
     }
+    originalRef.current = text.trim();
     setGenerating(true);
     setError("");
     setSuggestions(null);
@@ -44,13 +46,14 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
     }
   }
 
-  async function send(value: string, tone: Tone) {
+  async function send(sentText: string, tone: Tone) {
     setSending(true);
     setError("");
     try {
-      await onSend(value, tone);
+      await onSend(originalRef.current, sentText, tone);
       setText("");
       setSuggestions(null);
+      originalRef.current = "";
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Não foi possível enviar a mensagem.");
     } finally {
@@ -77,7 +80,10 @@ export function MessageComposer({ contact, onSend }: MessageComposerProps) {
           suggestions={suggestions}
           sending={sending}
           onChoose={(suggestion) => void send(suggestion.text, suggestion.tone)}
-          onDismiss={() => setSuggestions(null)}
+          onDismiss={() => {
+            setSuggestions(null);
+            originalRef.current = "";
+          }}
         />
       )}
       {error && (

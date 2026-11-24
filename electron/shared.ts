@@ -50,6 +50,18 @@ export interface BabelTalkApi {
       descontraido: string;
     }>;
   };
+  outbox: {
+    enqueue: (input: {
+      messageId: string;
+      contactId: string;
+      originalText: string;
+      sentText: string;
+      tone: string;
+    }) => Promise<{ id: string; status: string }>;
+    status: (messageId: string) => Promise<{ status: string } | null>;
+    pendingCount: () => Promise<number>;
+  };
 }
 
 export type MessagePayload = Omit<Message, "id" | "createdAt"> & { direction: Direction };
+export type { Message } from "./db";
